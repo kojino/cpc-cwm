@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import logging
+import re
 from dataclasses import dataclass, field
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 from slack_sdk import WebClient
 
@@ -100,10 +101,15 @@ def resolve_user_names(
 ) -> dict[str, str]:
     """Build a user_id -> display_name mapping for all users in messages."""
     user_ids: set[str] = set()
+    mention_pattern = re.compile(r"<@(U[A-Z0-9]+)>")
+
     for msg in messages:
         user_ids.add(msg.user)
+        # Also collect user IDs mentioned in message text
+        user_ids.update(mention_pattern.findall(msg.text))
         for reply in msg.replies:
             user_ids.add(reply.user)
+            user_ids.update(mention_pattern.findall(reply.text))
 
     user_map: dict[str, str] = {}
     for uid in user_ids:
@@ -123,6 +129,15 @@ def resolve_user_names(
     return user_map
 
 
+def _replace_mentions(text: str, user_map: Dict[str, str]) -> str:
+    """Replace <@U12345> mentions in message text with display names."""
+    def replacer(match):
+        uid = match.group(1)
+        return f"@{user_map.get(uid, uid)}"
+
+    return re.sub(r"<@(U[A-Z0-9]+)>", replacer, text)
+
+
 def format_messages_for_prompt(
     messages: list[Message], user_map: dict[str, str]
 ) -> str:
@@ -131,11 +146,13 @@ def format_messages_for_prompt(
 
     for msg in messages:
         name = user_map.get(msg.user, msg.user)
-        lines.append(f"[{name}]: {msg.text}")
+        text = _replace_mentions(msg.text, user_map)
+        lines.append(f"[{name}]: {text}")
 
         for reply in msg.replies:
             reply_name = user_map.get(reply.user, reply.user)
-            lines.append(f"  └ [{reply_name}]: {reply.text}")
+            reply_text = _replace_mentions(reply.text, user_map)
+            lines.append(f"  └ [{reply_name}]: {reply_text}")
 
         if msg.replies:
             lines.append("")  # Blank line after threaded discussions
