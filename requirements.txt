@@ -1,0 +1,4 @@
+slack-sdk>=3.27
+anthropic>=0.40
+pygithub>=2.1
+python-dotenv>=1.0

@@ -1,0 +1,13 @@
+[project]
+name = "cpc-scholar-bot"
+version = "0.2.0"
+description = "Extract AI agent discussions from Slack and generate a whitepaper on GitHub"
+requires-python = ">=3.11"
+dependencies = [
+    "slack-sdk>=3.27",
+    "anthropic>=0.40",
+    "pygithub>=2.1",
+]
+
+[project.scripts]
+cpc-bot = "cpc_scholar_bot.main:main"
